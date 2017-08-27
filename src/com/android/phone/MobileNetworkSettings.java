@@ -54,6 +54,7 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
+import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
@@ -105,6 +106,7 @@ public class MobileNetworkSettings extends PreferenceActivity
     private static final String BUTTON_OPERATOR_SELECTION_EXPAND_KEY = "button_carrier_sel_key";
     private static final String BUTTON_CARRIER_SETTINGS_KEY = "carrier_settings_key";
     private static final String BUTTON_CDMA_SYSTEM_SELECT_KEY = "cdma_system_select_key";
+    private static final String BUTTON_COLP_KEY = "connected_line_identification_key";
 
     static final int preferredNetworkMode = Phone.PREFERRED_NT_MODE;
 
@@ -121,6 +123,7 @@ public class MobileNetworkSettings extends PreferenceActivity
     private RestrictedSwitchPreference mButtonDataRoam;
     private SwitchPreference mButton4glte;
     private Preference mLteDataServicePref;
+    private SwitchPreference mButtonCOLP;
 
     private static final String iface = "rmnet0"; //TODO: this will go away
     private List<SubscriptionInfo> mActiveSubInfos;
@@ -257,6 +260,9 @@ public class MobileNetworkSettings extends PreferenceActivity
             return true;
         } else if (preference == mButtonDataRoam) {
             // Do not disable the preference screen if the user clicks Data roaming.
+            return true;
+        } else if (preference == mButtonCOLP) {
+            // Do not disable the preference screen if the user clicks COLP
             return true;
         } else {
             // if the button is anything but the simple toggle preference,
@@ -499,6 +505,9 @@ public class MobileNetworkSettings extends PreferenceActivity
 
         mLteDataServicePref = prefSet.findPreference(BUTTON_CDMA_LTE_DATA_SERVICE_KEY);
 
+        mButtonCOLP = (SwitchPreference)findPreference(BUTTON_COLP_KEY);
+        mButtonCOLP.setOnPreferenceChangeListener(this);
+
         // Initialize mActiveSubInfo
         int max = mSubscriptionManager.getActiveSubscriptionInfoCountMax();
         mActiveSubInfos = new ArrayList<SubscriptionInfo>(max);
@@ -601,6 +610,7 @@ public class MobileNetworkSettings extends PreferenceActivity
             prefSet.addPreference(mButtonPreferredNetworkMode);
             prefSet.addPreference(mButtonEnabledNetworks);
             prefSet.addPreference(mButton4glte);
+            prefSet.addPreference(mButtonCOLP);
         }
 
         int settingsNetworkMode = SubscriptionController.getInstance().getUserNwMode(phoneSubId);
@@ -767,6 +777,10 @@ public class MobileNetworkSettings extends PreferenceActivity
         if (ps != null) {
             ps.setEnabled(hasActiveSubscriptions);
         }
+
+        boolean COLPEnabled = Settings.Global.getInt(getContentResolver(),
+                    Settings.Global.CONNECTED_LINE_IDENTIFICATION + phoneSubId, 1) != 0;
+        mButtonCOLP.setChecked(COLPEnabled);
     }
 
     @Override
@@ -918,6 +932,10 @@ public class MobileNetworkSettings extends PreferenceActivity
                 mPhone.setDataRoamingEnabled(false);
             }
             return true;
+        } else if (preference == mButtonCOLP) {
+            Settings.Global.putInt(getContentResolver(),
+                    Settings.Global.CONNECTED_LINE_IDENTIFICATION + phoneSubId,
+                    mButtonCOLP.isChecked() ? 0 : 1);
         }
 
         updateBody();
